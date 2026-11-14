@@ -1,0 +1,42 @@
+# IDE & Gradle
+*.iml
+.gradle/
+.kotlin/
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+
+# Local environment & AI Studio workspace state
+local.properties
+.env
+*.env
+!.env.example
+.aistudio/
+.build-outputs/
+release/
+
+# Build outputs & binaries (published via GitHub Releases / CI artifacts)
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Signing keystores, certificates & secrets (NEVER commit)
+*.jks
+*.keystore
+*.p12
+*.pem
+debug.keystore
+debug.keystore.base64
+signing.properties
+google-services.json
+app/google-services.json

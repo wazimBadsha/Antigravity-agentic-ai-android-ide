@@ -1,0 +1,6 @@
+{
+  "name": "Antigravity Mobile",
+  "description": "Mobile agentic IDE wrapper and multi-language development studio with AVF terminal research.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
