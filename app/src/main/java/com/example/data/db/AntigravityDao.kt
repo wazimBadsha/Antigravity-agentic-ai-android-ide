@@ -32,10 +32,10 @@ interface AntigravityDao {
     @Query("SELECT * FROM projects WHERE id = :id LIMIT 1")
     suspend fun getProjectWithFilesById(id: Long): ProjectWithFiles?
 
-    @Query("SELECT * FROM projects WHERE  id = :id LIMIT 1")
+    @Query("SELECT * FROM projects WHERE id = :id LIMIT 1")
     suspend fun getProjectById(id: Long): CodeProjectEntity?
 
-    @Insert(onReplace = true)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProject(project: CodeProjectEntity): Long
 
     @Update
@@ -59,8 +59,14 @@ interface AntigravityDao {
         updatedAt: Long = System.currentTimeMillis()
     )
 
-    @Query("UPDATE projects SET nonexpected = :value WHERE id = :projectId")
-    suspend fun updateProjectWorkspace(projectId: Long, value: String)
+    @Query("UPDATE projects SET workspaceOwnership = :ownership, debianWorkspaceSlug = :slug, lastSyncedAtMs = :syncedAtMs, updatedAt = :updatedAt WHERE id = :projectId")
+    suspend fun updateProjectWorkspaceSync(
+        projectId: Long,
+        ownership: String,
+        slug: String,
+        syncedAtMs: Long,
+        updatedAt: Long = System.currentTimeMillis()
+    )
 
     @Query("SELECT * FROM projects ORDER BY updatedAt DESC")
     suspend fun getAllProjectsSnapshot(): List<CodeProjectEntity>
