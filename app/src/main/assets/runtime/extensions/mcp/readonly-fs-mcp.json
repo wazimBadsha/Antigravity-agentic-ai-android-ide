@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "antigravity-readonly-fs": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/root/antigravity-workspaces"
+      ],
+      "readOnly": true,
+      "env": {},
+      "notes": "Read-only filesystem probe template; requires Node.js installed inside Debian PRoot."
+    }
+  }
+}
