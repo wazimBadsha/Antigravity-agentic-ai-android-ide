@@ -1,0 +1,119 @@
+name: Android Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag name (e.g., v1.0.0-debug)"
+        required: true
+        default: "v1.0.0-debug"
+      prerelease:
+        description: "Mark release as prerelease"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Publish APK Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x gradlew
+
+      - name: Provision ephemeral CI debug keystore
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Run tests, lint, and build Debug APK
+        run: ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --no-daemon --console=plain
+
+      - name: Optionally build signed Release APK if signing secrets exist
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          mkdir -p release-artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk release-artifacts/Antigravity-Mobile-debug.apk
+
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload-keystore.jks"
+            export KEYSTORE_PATH="$RUNNER_TEMP/upload-keystore.jks"
+            ./gradlew :app:assembleRelease --no-daemon --console=plain
+            cp app/build/outputs/apk/release/app-release.apk release-artifacts/Antigravity-Mobile-release.apk
+            echo "RELEASE_BUILT=true" >> "$GITHUB_ENV"
+          else
+            echo "Release signing secrets not configured; publishing Debug APK only."
+            echo "RELEASE_BUILT=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Cleanup temporary release keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload-keystore.jks"
+
+      - name: Generate SHA256SUMS and release metadata
+        run: |
+          cp artifacts/release-manifest.json release-artifacts/release-manifest.json
+          (cd release-artifacts && sha256sum *.apk > SHA256SUMS.txt)
+          cat release-artifacts/SHA256SUMS.txt
+
+      - name: Resolve release tag
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag_name }}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=${{ github.event.inputs.prerelease }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload workflow release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: antigravity-mobile-${{ steps.meta.outputs.tag }}
+          path: release-artifacts/*
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: "Antigravity Mobile ${{ steps.meta.outputs.tag }}"
+          prerelease: ${{ steps.meta.outputs.prerelease }}
+          generate_release_notes: true
+          files: |
+            release-artifacts/Antigravity-Mobile-debug.apk
+            release-artifacts/SHA256SUMS.txt
+            release-artifacts/release-manifest.json
+            release-artifacts/Antigravity-Mobile-release.apk
+          fail_on_unmatched_files: false

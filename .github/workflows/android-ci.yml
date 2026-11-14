@@ -1,0 +1,108 @@
+name: Android CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Test, Lint & Build Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x gradlew
+
+      - name: Provision ephemeral CI debug keystore
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Validate bundled Termux runtime scripts and manifests
+        run: |
+          bash -n runtime/scripts/agy-bootstrap.sh
+          bash -n runtime/scripts/agy-wrapper.sh
+          bash -n runtime/doctor/agy-doctor.sh
+          python3 -m json.tool runtime/extensions/mcp/readonly-fs-mcp.json >/dev/null
+          python3 -m json.tool runtime/extensions/plugins/antigravity-mobile-tools/plugin.json >/dev/null
+          python3 -m json.tool runtime/extensions/hooks/pre-tool-guard.json >/dev/null
+          python3 -m json.tool runtime/manifests/provenance-manifest.template.json >/dev/null
+          cmp -s runtime/scripts/agy-bootstrap.sh app/src/main/assets/runtime/bin/agy-bootstrap.sh
+          cmp -s runtime/scripts/agy-wrapper.sh app/src/main/assets/runtime/bin/agy-wrapper.sh
+          cmp -s runtime/doctor/agy-doctor.sh app/src/main/assets/runtime/bin/agy-doctor.sh
+          cmp -s runtime/extensions/mcp/readonly-fs-mcp.json app/src/main/assets/runtime/extensions/mcp/readonly-fs-mcp.json
+
+      - name: Run unit & Robolectric tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --console=plain
+
+      - name: Run Android Lint
+        run: ./gradlew :app:lintDebug --no-daemon --console=plain
+
+      - name: Assemble Debug APK
+        run: ./gradlew :app:assembleDebug --no-daemon --console=plain
+
+      - name: Verify Debug APK signature and generate checksums
+        run: |
+          mkdir -p ci-artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk ci-artifacts/Antigravity-Mobile-debug.apk
+          APKSIGNER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -name apksigner 2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -n "$APKSIGNER" ]; then
+            "$APKSIGNER" verify --verbose ci-artifacts/Antigravity-Mobile-debug.apk
+          fi
+          (cd ci-artifacts && sha256sum Antigravity-Mobile-debug.apk > SHA256SUMS.txt)
+          cat ci-artifacts/SHA256SUMS.txt
+          ls -lh ci-artifacts/Antigravity-Mobile-debug.apk
+
+      - name: Upload Debug APK & SHA256SUMS
+        uses: actions/upload-artifact@v4
+        with:
+          name: Antigravity-Mobile-debug-apk
+          path: |
+            ci-artifacts/Antigravity-Mobile-debug.apk
+            ci-artifacts/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Upload Unit Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: warn
+
+      - name: Upload Android Lint Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-lint-reports
+          path: app/build/reports/lint-results-debug.*
+          if-no-files-found: warn

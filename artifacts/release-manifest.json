@@ -1,0 +1,48 @@
+{
+  "project": "Antigravity Mobile",
+  "repository": "https://github.com/wazimBadSha/Antigravity-agentic-ai-android-ide",
+  "targetDevice": "Google Pixel 7a (ARM64 / arm64-v8a)",
+  "android": {
+    "applicationId": "com.aistudio.antigravitymobile.wqkvb",
+    "namespace": "com.example",
+    "versionName": "1.0",
+    "versionCode": 1,
+    "minSdk": 24,
+    "targetSdk": 36,
+    "compileSdk": "36.1",
+    "roomSchemaVersion": 4,
+    "bundledWrapperVersion": "1.1.0"
+  },
+  "artifacts": {
+    "debug": {
+      "filename": "Antigravity-Mobile-debug.apk",
+      "sourceBuildPath": "app/build/outputs/apk/debug/app-debug.apk",
+      "sizeBytes": 23690367,
+      "sha256": "b9615280fb9bb722f5df4eb23ea2e91b0da86a74f4aa2f98861554c1c38473e9",
+      "signingScheme": "APK Signature Scheme v2 (debugConfig)",
+      "status": "BUILT_AND_VERIFIED_IN_CLOUD_CONTAINER"
+    },
+    "release": {
+      "filename": "Antigravity-Mobile-release.apk",
+      "status": "NOT AVAILABLE — PRODUCTION SIGNING CREDENTIALS NOT CONFIGURED"
+    }
+  },
+  "verification": {
+    "unitAndRobolectricTests": {
+      "command": "./gradlew :app:testDebugUnitTest --console=plain",
+      "total": 41,
+      "passed": 41,
+      "failures": 0,
+      "skipped": 0
+    },
+    "androidLint": {
+      "command": "./gradlew :app:lintDebug --console=plain",
+      "errors": 0,
+      "warnings": 45
+    },
+    "physicalDeviceVerification": {
+      "target": "Google Pixel 7a",
+      "status": "NOT VERIFIED — NO ADB OR EMULATOR IN CLOUD BUILD ENVIRONMENT"
+    }
+  }
+}
